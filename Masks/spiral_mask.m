@@ -1,4 +1,4 @@
-function mask_spir = spiral_mask(nturns, rad, fov)
+function mask_spir = spiral_mask(nturns,rad,fov)
 % nturns = number of turns (integer)
 % rad = max radius of spiral
 % fov = number of voxels in [nx, ny]
@@ -24,6 +24,6 @@ mask_spir = zeros(fov);
 for l = 1:length(x)
     mask_spir(round(x(l))+fov(1)/2,round(y(l))+fov(2)/2) = 1;
 end
-mask_spir(128-10:128+10,128-10:128+10) = 1;
+%mask_spir(128-10:128+10,128-10:128+10) = 1; % Densely sample center
 
 mask_spir = logical(mask_spir);
