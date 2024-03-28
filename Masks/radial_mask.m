@@ -1,6 +1,7 @@
-function mask_rad = radial_mask(r,n)
-
-fov = [256, 256];
+function mask_rad = radial_mask(r,n,fov)
+% r = radius of spokes
+% n = number of spokes
+% fov = number of voxels in [nx, ny]
 
 % r radius of spoke
 % n = 50 % Number of spokes

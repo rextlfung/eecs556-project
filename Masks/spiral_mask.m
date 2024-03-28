@@ -1,6 +1,8 @@
-function mask_spir = spiral_mask(nturns, rad)
+function mask_spir = spiral_mask(nturns, rad, fov)
+% nturns = number of turns (integer)
+% rad = max radius of spiral
+% fov = number of voxels in [nx, ny]
 
-fov = [256,256];
 % given values
 pos = [0 0 ;    % startpoint
        0 rad ] ;  % endpoint
