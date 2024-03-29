@@ -5,7 +5,7 @@
 % Modified 2024 Yongli He, U of M
 %
 %%
-clear all;
+clear;
 clc;
 addpath('./NUFFT') 
 addpath('./DFT')
@@ -64,6 +64,35 @@ At_WOLS = @ (z) INUFFT2_Symmetric(z,fn_WOLS,kloc_centered,J,K,N,Ofactor,ones(siz
 
 x_WOLS = At_WOLS(X); %apply A_adj_WOLS to the radial k-measurements and INUFFT an image
 
-figure; tiledlayout(1,2,'TileSpacing','tight')
-nexttile;im(abs(I')); title('Original image')
-nexttile;im(abs(x_WOLS')); title('NUFFT_WOLS')
+% MIRT NUFFT
+% Turn raw k-space data and (kx,ky) location vectors into columns
+ksp_mols = X.'; kloc_centered = kloc_centered.';
+kxx = rescale(real(kloc_centered), -pi, pi);
+kyy = rescale(imag(kloc_centered), -pi, pi);
+% create NUFFT structure
+N = [size(I)];
+J = [5 5]; % interpolation neighborhood
+K = N*2; % two-times oversampling
+om = [kxx, kyy];	% 'frequencies' are locations here!
+% NUFFT magic
+st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
+weights = ksp_mols;
+x_MIRT = nufft_adj(weights,st);
+
+% COMPUTE METRICS
+NRMSE_WOLS = norm(rescale(real(x_WOLS)) - rescale(I),'fro')/norm(rescale(I),'fro');
+PSNR_WOLS = psnr(rescale(real(x_WOLS)), rescale(I));
+SSIM_WOLS = ssim(rescale(real(x_WOLS)), rescale(I));
+
+NRMSE_MIRT = norm(rescale(real(x_MIRT)) - rescale(I),'fro')/norm(rescale(I),'fro');
+PSNR_MIRT = psnr(rescale(real(x_MIRT)), rescale(I));
+SSIM_MIRT = ssim(rescale(real(x_MIRT)), rescale(I));
+
+% DISPLAY
+figure; tiledlayout(1,3,'TileSpacing','tight')
+nexttile;im(abs(I')); title('Original image'); colorbar;
+nexttile;im(abs(x_WOLS')); title('NUFFT_WOLS'); colorbar;
+xlabel(sprintf("NRMSE: %f, PSNR: %f, SSIM: %f", NRMSE_WOLS, PSNR_WOLS, SSIM_WOLS))
+nexttile;im(abs(x_MIRT')); title('NUFFT_MIRT'); colorbar;
+xlabel(sprintf("NRMSE: %f, PSNR: %f, SSIM: %f", NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT))
+
