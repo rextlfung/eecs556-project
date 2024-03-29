@@ -38,7 +38,7 @@ switch type
         mask(:,1:2:end) = true;
     case 1 % radial
         r = 127;
-        n = 128;
+        n = 64;
         fov = size(ksp);
         mask = radial_mask(r, n, fov);
     case 2 % spiral, uniform density
