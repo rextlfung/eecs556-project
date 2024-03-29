@@ -23,53 +23,39 @@
 clear; close all;
 addpath('Masks/');
 
-%% Load mristack and get undersampled k-space from a slice
-load mristack;
-mristack = permute(mristack, [2 1 3]);
-img = double(mristack(:,:,8));
-ksp = ifftshift(fft2(fftshift(img)));
+%% Load MOLS data and get undersampled k-space from a slice
+load MOLS_x_k.mat; % I, X, kloc_centered
+img = permute(I, [2 1]);
+img = double(img);
+ksp = ifftshift(fft2(fftshift(img))); % Make "ground truth" k-space from img
 
-% Create sampling mask
-type = 1;
+% Turn raw k-space data and (kx,ky) location vectors into columns
+ksp_mols = X.'; kloc_centered = kloc_centered.';
 
-switch type
-    case 0 % uniform, 2x undersampled in PE direciton
-        mask = false(size(ksp));
-        mask(:,1:2:end) = true;
-    case 1 % radial
-        r = 127;
-        n = 32;
-        fov = size(ksp);
-        mask = radial_mask(r, n, fov);
-    case 2 % spiral, uniform density
-        nturns = 32;
-        rad = 127;
-        fov = size(ksp);
-        mask = spiral_mask(nturns,rad,fov);
+%% map non-cartesian sampled data onto high-res grid for plotting
+kxx = imag(kloc_centered);
+kyy = real(kloc_centered);
+ksp_us = zeros(2*size(ksp));
+
+% map k-space locations onto high-res grid indices
+kxx_mapped = round(rescale(kxx, 1, size(ksp_us,1)));
+kyy_mapped = round(rescale(kyy, 1, size(ksp_us,2)));
+
+% allocate raw k-space data to closest point on grid
+for n = 1:numel(ksp_mols)
+    ksp_us(kxx_mapped(n), kyy_mapped(n)) = ksp_mols(n);
 end
 
-% Undersample
-ksp_us = ksp .* mask;
-
-%% Get k-space locations from data
-kx = linspace(-pi, pi, 256);
-ky = linspace(-pi, pi, 256);
-[kxx, kyy] = ndgrid(kx, ky);
-
-% Undersampled version
-kxx_us = kxx(mask);
-kyy_us = kyy(mask);
-
-% create NUFFT structure
+%% create NUFFT structure
 N = size(ksp);
-J = [5 5];	% interpolation neighborhood
-K = N*2;	% two-times oversampling
-om = [kxx_us(:) kyy_us(:)];	% 'frequencies' are locations here!
+J = [2 2]; % interpolation neighborhood
+K = N*2; % two-times oversampling
+om = [kxx kyy];	% 'frequencies' are locations here!
 
 %% NUFFT magic
 st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
-weights = ksp(mask);
-[pattern, Xk] = nufft_adj_modified(weights(:), st);
+weights = ksp_mols;
+[pattern, Xk] = nufft_adj_modified(weights, st);
 Xk = ifftshift(Xk);
 
 %% Viz
