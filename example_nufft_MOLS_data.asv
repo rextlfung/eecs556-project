@@ -27,52 +27,37 @@ addpath('Masks/');
 load MOLS_x_k.mat; % I, X, kloc_centered
 img = permute(I, [2 1]);
 img = double(img);
-ksp = ifftshift(fft2(fftshift(img))); % Make "ground truth" k-space from img
-
-% Turn raw k-space data and (kx,ky) location vectors into columns
-ksp_mols = X.'; kloc_centered = kloc_centered.';
+X = X.'; kloc_centered = kloc_centered.'; % turn into columns
+ksp = ifftshift(fft2(fftshift(img)));
 
 %% map non-cartesian sampled data onto high-res grid for plotting
-kxx = rescale(imag(kloc_centered), -pi, pi);
-kyy = rescale(real(kloc_centered), -pi, pi);
-ksp_us = zeros(size(ksp));
+kxx = real(kloc_centered);
+kyy = imag(kloc_centered);
+ksp_us = zeros(4*size(ksp));
+kxx_mapped = size(ksp_us,1) * rescale(kxx);
+ = size(ksp_us,2) * rescale(kyy);
 
-% map k-space locations onto high-res grid indices
-kxx_mapped = round(rescale(kxx, 1, size(ksp_us,1)));
-kyy_mapped = round(rescale(kyy, 1, size(ksp_us,2)));
-
-% allocate raw k-space data to closest point on grid
-for n = 1:numel(ksp_mols)
-    ksp_us(kxx_mapped(n), kyy_mapped(n)) = ksp_mols(n);
-end
-img_zi = ifftshift(ifft2(fftshift(ksp_us)));
 %% create NUFFT structure
 N = size(ksp);
-J = [5 5]; % interpolation neighborhood
+J = [2 2]; % interpolation neighborhood
 K = N*2; % two-times oversampling
 om = [kxx kyy];	% 'frequencies' are locations here!
 
 %% NUFFT magic
 st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
-weights = ksp_mols;
-[img_nufft, Xk] = nufft_adj_modified(weights, st);
+weights = X;
+[pattern, Xk] = nufft_adj_modified(weights, st);
 Xk = ifftshift(Xk);
 
 %% Viz
 close all;
 figure; tiledlayout(2,3,'TileSpacing','tight')
 nexttile; im(log(abs(ksp))); title('Ground truth k-space');
-nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space');
+%nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space');
 nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)');
 nexttile; im(img); title('Ground truth image')
-nexttile; im(img_zi); title('Zero-insertion recon');
-nexttile; im(img_nufft); title('NUFFT recon')
-
-%% Performance metrics
-NRMSE = norm(rescale(real(img_nufft)) - rescale(img),'fro')/norm(rescale(img),'fro');
-PSNR = psnr(rescale(real(img_nufft)), rescale(img));
-SSIM = ssim(rescale(real(img_nufft)), rescale(img));
-fprintf('NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE, PSNR, SSIM)
+%nexttile; im(ifftshift(ifft2(fftshift(ksp_us)))); title('Zero-insertion recon');
+nexttile; im(pattern); title('NUFFT recon')
 
 return
 %% Original code by Jeff
@@ -102,8 +87,8 @@ for choice=1:2
 	weights = ones(size(xc)); % equal weights on each element; could change
 
 	% call the *adjoint* NUFFT; this is what does "the FT of unequal data"
-	img_nufft = nufft_adj(weights, st);
+	pattern = nufft_adj(weights, st);
 
 	pl(2+choice)
-	im(img_nufft, 'pattern')
+	im(pattern, 'pattern')
 end

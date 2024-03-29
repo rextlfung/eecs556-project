@@ -38,11 +38,11 @@ switch type
         mask(:,1:2:end) = true;
     case 1 % radial
         r = 127;
-        n = 32;
+        n = 128;
         fov = size(ksp);
         mask = radial_mask(r, n, fov);
     case 2 % spiral, uniform density
-        nturns = 32;
+        nturns = 64 ;
         rad = 127;
         fov = size(ksp);
         mask = spiral_mask(nturns,rad,fov);
@@ -50,10 +50,11 @@ end
 
 % Undersample
 ksp_us = ksp .* mask;
+img_zi = ifftshift(ifft2(fftshift(ksp_us)));
 
 %% Get k-space locations from data
-kx = linspace(-pi, pi, 256);
-ky = linspace(-pi, pi, 256);
+kx = linspace(-pi, pi, size(ksp,1));
+ky = linspace(-pi, pi, size(ksp,2));
 [kxx, kyy] = ndgrid(kx, ky);
 
 % Undersampled version
@@ -69,7 +70,7 @@ om = [kxx_us(:) kyy_us(:)];	% 'frequencies' are locations here!
 %% NUFFT magic
 st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
 weights = ksp(mask);
-[pattern, Xk] = nufft_adj_modified(weights(:), st);
+[img_nufft, Xk] = nufft_adj_modified(weights(:), st);
 Xk = ifftshift(Xk);
 
 %% Viz
@@ -79,9 +80,14 @@ nexttile; im(log(abs(ksp))); title('Ground truth k-space');
 nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space');
 nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)');
 nexttile; im(img); title('Ground truth image')
-nexttile; im(ifftshift(ifft2(fftshift(ksp_us)))); title('Zero-insertion recon');
-nexttile; im(pattern); title('NUFFT recon')
+nexttile; im(img_zi); title('Zero-insertion recon');
+nexttile; im(img_nufft); title('NUFFT recon')
 
+%% Performance metrics
+NRMSE = norm(rescale(real(img_nufft)) - rescale(img),'fro')/norm(rescale(img),'fro');
+PSNR = psnr(rescale(real(img_nufft)), rescale(img));
+SSIM = ssim(rescale(real(img_nufft)), rescale(img));
+fprintf('NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE, PSNR, SSIM)
 return
 %% Original code by Jeff
 % antenna element locations in 2d plane
@@ -110,8 +116,8 @@ for choice=1:2
 	weights = ones(size(xc)); % equal weights on each element; could change
 
 	% call the *adjoint* NUFFT; this is what does "the FT of unequal data"
-	pattern = nufft_adj(weights, st);
+	img_nufft = nufft_adj(weights, st);
 
 	pl(2+choice)
-	im(pattern, 'pattern')
+	im(img_nufft, 'pattern')
 end
