@@ -30,7 +30,7 @@ img = double(mristack(:,:,8));
 ksp = ifftshift(fft2(fftshift(img)));
 
 % Create sampling mask
-type = 1;
+type = 2;
 
 switch type
     case 0 % uniform, 2x undersampled in PE direciton
@@ -76,18 +76,27 @@ Xk = ifftshift(Xk);
 %% Viz
 close all;
 figure; tiledlayout(2,3,'TileSpacing','tight')
-nexttile; im(log(abs(ksp))); title('Ground truth k-space');
-nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space');
-nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)');
-nexttile; im(img); title('Ground truth image')
-nexttile; im(img_zi); title('Zero-insertion recon');
-nexttile; im(img_nufft); title('NUFFT recon')
+nexttile; im(log(abs(ksp))); title('Ground truth k-space'); colorbar
+nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space'); colorbar
+nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)'); colorbar
+nexttile; im(img); title('Ground truth image'); colorbar
+nexttile; im(img_zi); title('Zero-insertion recon'); colorbar
+nexttile; im(img_nufft); title('NUFFT recon'); colorbar
 
 %% Performance metrics
-NRMSE = norm(rescale(real(img_nufft)) - rescale(img),'fro')/norm(rescale(img),'fro');
-PSNR = psnr(rescale(real(img_nufft)), rescale(img));
-SSIM = ssim(rescale(real(img_nufft)), rescale(img));
-fprintf('NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE, PSNR, SSIM)
+NRMSE_zi = norm(rescale(real(img_zi)) - rescale(img),'fro')/norm(rescale(img),'fro');
+PSNR_zi = psnr(rescale(real(img_zi)), rescale(img));
+SSIM_zi = ssim(rescale(real(img_zi)), rescale(img));
+
+NRMSE_MIRT = norm(rescale(real(img_nufft)) - rescale(img),'fro')/norm(rescale(img),'fro');
+PSNR_MIRT = psnr(rescale(real(img_nufft)), rescale(img));
+SSIM_MIRT = ssim(rescale(real(img_nufft)), rescale(img));
+
+sgtitle(strcat(...
+    sprintf('Zero-insertion recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_zi, PSNR_zi, SSIM_zi),...
+    "; ",...
+    sprintf('NUFFT recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT)...
+));
 return
 %% Original code by Jeff
 % antenna element locations in 2d plane
