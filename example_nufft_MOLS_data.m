@@ -33,9 +33,9 @@ ksp = ifftshift(fft2(fftshift(img))); % Make "ground truth" k-space from img
 ksp_mols = X.'; kloc_centered = kloc_centered.';
 
 %% map non-cartesian sampled data onto high-res grid for plotting
-kxx = imag(kloc_centered);
-kyy = real(kloc_centered);
-ksp_us = zeros(2*size(ksp));
+kxx = rescale(imag(kloc_centered), -pi, pi);
+kyy = rescale(real(kloc_centered), -pi, pi);
+ksp_us = zeros(size(ksp));
 
 % map k-space locations onto high-res grid indices
 kxx_mapped = round(rescale(kxx, 1, size(ksp_us,1)));
@@ -48,7 +48,7 @@ end
 
 %% create NUFFT structure
 N = size(ksp);
-J = [2 2]; % interpolation neighborhood
+J = [5 5]; % interpolation neighborhood
 K = N*2; % two-times oversampling
 om = [kxx kyy];	% 'frequencies' are locations here!
 
