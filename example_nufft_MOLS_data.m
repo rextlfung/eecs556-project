@@ -33,9 +33,11 @@ ksp = ifftshift(fft2(fftshift(img))); % Make "ground truth" k-space from img
 ksp_mols = X.'; kloc_centered = kloc_centered.';
 
 %% map non-cartesian sampled data onto high-res grid for plotting
+us_factor = 4;
+ksp_us = zeros(us_factor*size(ksp));
+
 kxx = rescale(imag(kloc_centered), -pi, pi);
 kyy = rescale(real(kloc_centered), -pi, pi);
-ksp_us = zeros(size(ksp));
 
 % map k-space locations onto high-res grid indices
 kxx_mapped = round(rescale(kxx, 1, size(ksp_us,1)));
@@ -46,15 +48,20 @@ for n = 1:numel(ksp_mols)
     ksp_us(kxx_mapped(n), kyy_mapped(n)) = ksp_mols(n);
 end
 img_zi = ifftshift(ifft2(fftshift(ksp_us)));
+
+% Extract central portion from upsampled (zero-inserted) image
+range_x = ((-size(img,1)/2 + 1):size(img,1)/2) + size(img_zi,1)/2;
+range_y = ((-size(img,2)/2 + 1):size(img,2)/2) + size(img_zi,2)/2;
+img_zi = img_zi(range_x, range_y);
 %% create NUFFT structure
 N = size(ksp);
 J = [5 5]; % interpolation neighborhood
-K = N*2; % two-times oversampling
+K = N*us_factor; % overample by us_factor times
 om = [kxx kyy];	% 'frequencies' are locations here!
 
 %% NUFFT magic
 st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
-weights = ksp_mols;
+weights = ksp_mols .* (0.2 + sqrt(kxx.^2 + kyy.^2));
 [img_nufft, Xk] = nufft_adj_modified(weights, st);
 Xk = ifftshift(Xk);
 
@@ -65,7 +72,7 @@ nexttile; im(log(abs(ksp))); title('Ground truth k-space'); colorbar
 nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space'); colorbar
 nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)'); colorbar
 nexttile; im(img); title('Ground truth image'); colorbar
-nexttile; im(img_zi); title('Zero-insertion recon'); colorbar
+nexttile; im(img_zi); title('Gridding + zero-insertion recon'); colorbar
 nexttile; im(img_nufft); title('NUFFT recon'); colorbar
 
 %% Performance metrics
@@ -78,7 +85,7 @@ PSNR_MIRT = psnr(rescale(real(img_nufft)), rescale(img));
 SSIM_MIRT = ssim(rescale(real(img_nufft)), rescale(img));
 
 sgtitle(strcat(...
-    sprintf('Zero-insertion recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_zi, PSNR_zi, SSIM_zi),...
+    sprintf('Gridding + zero-insertion recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_zi, PSNR_zi, SSIM_zi),...
     "; ",...
     sprintf('NUFFT recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT)...
 ));

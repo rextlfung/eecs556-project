@@ -27,6 +27,7 @@ addpath('Masks/');
 load mristack;
 mristack = permute(mristack, [2 1 3]);
 img = double(mristack(:,:,8));
+img = img/norm(img);
 ksp = ifftshift(fft2(fftshift(img)));
 
 % Create sampling mask
@@ -42,7 +43,7 @@ switch type
         fov = size(ksp);
         mask = radial_mask(r, n, fov);
     case 2 % spiral, uniform density
-        nturns = 64 ;
+        nturns = 64;
         rad = 127;
         fov = size(ksp);
         mask = spiral_mask(nturns,rad,fov);
@@ -51,6 +52,7 @@ end
 % Undersample
 ksp_us = ksp .* mask;
 img_zi = ifftshift(ifft2(fftshift(ksp_us)));
+img_zi = img_zi/norm(img_zi);
 
 %% Get k-space locations from data
 kx = linspace(-pi, pi, size(ksp,1));
@@ -71,6 +73,7 @@ om = [kxx_us(:) kyy_us(:)];	% 'frequencies' are locations here!
 st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
 weights = ksp(mask);
 [img_nufft, Xk] = nufft_adj_modified(weights(:), st);
+img_nufft = img_nufft/norm(img_nufft);
 Xk = ifftshift(Xk);
 
 %% Viz
@@ -81,7 +84,7 @@ nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space'); c
 nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)'); colorbar
 nexttile; im(img); title('Ground truth image'); colorbar
 nexttile; im(img_zi); title('Zero-insertion recon'); colorbar
-nexttile; im(img_nufft); title('NUFFT recon'); colorbar
+nexttile; im(img_nufft); title('MIRT NUFFT recon'); colorbar
 
 %% Performance metrics
 NRMSE_zi = norm(rescale(real(img_zi)) - rescale(img),'fro')/norm(rescale(img),'fro');
@@ -95,7 +98,7 @@ SSIM_MIRT = ssim(rescale(real(img_nufft)), rescale(img));
 sgtitle(strcat(...
     sprintf('Zero-insertion recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_zi, PSNR_zi, SSIM_zi),...
     "; ",...
-    sprintf('NUFFT recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT)...
+    sprintf('MIRT NUFFT recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT)...
 ));
 return
 %% Original code by Jeff
