@@ -63,6 +63,11 @@ ky = linspace(-pi, pi, size(ksp,2));
 kxx_us = kxx(mask);
 kyy_us = kyy(mask);
 
+% Density compensated weights
+dcf = (pi + sqrt(kxx.^2 + kyy.^2));
+ksp_weighted = ksp .* dcf;
+weights = ksp_weighted(mask);
+
 % create NUFFT structure
 N = size(ksp);
 J = [5 5];	% interpolation neighborhood
@@ -71,20 +76,9 @@ om = [kxx_us(:) kyy_us(:)];	% 'frequencies' are locations here!
 
 %% NUFFT magic
 st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
-weights = ksp(mask);
 [img_nufft, Xk] = nufft_adj_modified(weights(:), st);
 img_nufft = img_nufft/norm(img_nufft);
 Xk = ifftshift(Xk);
-
-%% Viz
-close all;
-figure; tiledlayout(2,3,'TileSpacing','tight')
-nexttile; im(log(abs(ksp))); title('Ground truth k-space'); colorbar
-nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space'); colorbar
-nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)'); colorbar
-nexttile; im(img); title('Ground truth image'); colorbar
-nexttile; im(img_zi); title('Zero-insertion recon'); colorbar
-nexttile; im(img_nufft); title('MIRT NUFFT recon'); colorbar
 
 %% Performance metrics
 NRMSE_zi = norm(rescale(real(img_zi)) - rescale(img),'fro')/norm(rescale(img),'fro');
@@ -95,11 +89,18 @@ NRMSE_MIRT = norm(rescale(real(img_nufft)) - rescale(img),'fro')/norm(rescale(im
 PSNR_MIRT = psnr(rescale(real(img_nufft)), rescale(img));
 SSIM_MIRT = ssim(rescale(real(img_nufft)), rescale(img));
 
-sgtitle(strcat(...
-    sprintf('Zero-insertion recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_zi, PSNR_zi, SSIM_zi),...
-    "; ",...
-    sprintf('MIRT NUFFT recon performance metircs: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT)...
-));
+%% Viz
+close all;
+figure; tiledlayout(2,3,'TileSpacing','tight')
+nexttile; im(log(abs(ksp))); title('Ground truth k-space'); colorbar
+nexttile; im(log(abs(ksp_us))); title('Undersampled (zero-inserted) k-space'); colorbar
+nexttile; im(log(abs(Xk))); title('Interpolated k-space (upsampled)'); colorbar
+nexttile; im(img); title('Ground truth image'); colorbar
+nexttile; im(img_zi); title('Zero-insertion recon'); colorbar
+xlabel(sprintf('Zero-insertion: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_zi, PSNR_zi, SSIM_zi));
+nexttile; im(img_nufft); title('MIRT NUFFT recon'); colorbar
+xlabel(sprintf('MIRT NUFFT: NRMSE: %f, PSNR: %f, SSIM: %f\n', NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT));
+
 return
 %% Original code by Jeff
 % antenna element locations in 2d plane

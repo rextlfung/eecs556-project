@@ -45,7 +45,7 @@ J=6;
 Ofactor=151;
 Order=2;
 diff=K-N;
-dcf=ones(1,length(kloc_centered));
+dcf=(0.3 + abs(kloc_centered));
 
 path = ['Precomputed_Kernels/',num2str(K),'_',num2str(N),'_',num2str(Ofactor),'_',num2str(Order),'_',num2str(J),'_'];
 
@@ -60,11 +60,11 @@ else
 end
 
 A_WOLS = @ (z) NUFFT2_Symmetric(z,K,diff,fn_WOLS,kloc_centered,J,N,Ofactor,prefilter_WOLS);
-At_WOLS = @ (z) INUFFT2_Symmetric(z,fn_WOLS,kloc_centered,J,K,N,Ofactor,ones(size(kloc_centered)),prefilter_WOLS);
+At_WOLS = @ (z) INUFFT2_Symmetric(z,fn_WOLS,kloc_centered,J,K,N,Ofactor,dcf,prefilter_WOLS);
 
 x_WOLS = At_WOLS(X); %apply A_adj_WOLS to the radial k-measurements and INUFFT an image
 
-% MIRT NUFFT
+%% MIRT NUFFT
 % Turn raw k-space data and (kx,ky) location vectors into columns
 ksp_mols = X.'; kloc_centered = kloc_centered.';
 kxx = rescale(real(kloc_centered), -pi, pi);
@@ -73,26 +73,27 @@ kyy = rescale(imag(kloc_centered), -pi, pi);
 N = [size(I)];
 J = [5 5]; % interpolation neighborhood
 K = N*2; % two-times oversampling
-om = [kxx, kyy];	% 'frequencies' are locations here!
+om = [kxx, kyy]; % 'frequencies' are locations here!
+
+% Desnity compensated weights
+weights = ksp_mols .* dcf.';
+% weights = ksp_mols;
+
 % NUFFT magic
 st = nufft_init(om, N, J, K, N/2, 'minmax:kb');
-weights = ksp_mols;
 x_MIRT = nufft_adj(weights,st);
 
 % COMPUTE METRICS
-NRMSE_WOLS = norm(rescale(real(x_WOLS)) - rescale(I),'fro')/norm(rescale(I),'fro');
-PSNR_WOLS = psnr(rescale(real(x_WOLS)), rescale(I));
-SSIM_WOLS = ssim(rescale(real(x_WOLS)), rescale(I));
-
-NRMSE_MIRT = norm(rescale(real(x_MIRT)) - rescale(I),'fro')/norm(rescale(I),'fro');
 PSNR_MIRT = psnr(rescale(real(x_MIRT)), rescale(I));
 SSIM_MIRT = ssim(rescale(real(x_MIRT)), rescale(I));
+
+PSNR_WOLS = psnr(rescale(real(x_WOLS)), rescale(I));
+SSIM_WOLS = ssim(rescale(real(x_WOLS)), rescale(I));
 
 % DISPLAY
 figure; tiledlayout(1,3,'TileSpacing','tight')
 nexttile;im(abs(I')); title('Original image'); colorbar;
-nexttile;im(abs(x_WOLS')); title('NUFFT_WOLS'); colorbar;
-xlabel(sprintf("NRMSE: %f, PSNR: %f, SSIM: %f", NRMSE_WOLS, PSNR_WOLS, SSIM_WOLS))
 nexttile;im(abs(x_MIRT')); title('NUFFT_MIRT'); colorbar;
-xlabel(sprintf("NRMSE: %f, PSNR: %f, SSIM: %f", NRMSE_MIRT, PSNR_MIRT, SSIM_MIRT))
-
+xlabel(sprintf("PSNR: %f, SSIM: %f", PSNR_MIRT, SSIM_MIRT))
+nexttile;im(abs(x_WOLS')); title('NUFFT_WOLS'); colorbar;
+xlabel(sprintf("PSNR: %f, SSIM: %f", PSNR_WOLS, SSIM_WOLS))

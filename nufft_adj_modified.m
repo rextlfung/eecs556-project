@@ -49,7 +49,7 @@ else
 	Xk_all = feval(st.interp_table_adj, st, X);
 end
 
-for ll=1:Lprod
+for ll=1:Lprod % What happens to Xk here?
 	Xk = reshape(Xk_all(:,ll), [Kd 1]);	% [(Kd)]
 	tmp = prod(Kd) * col(ifftn_fast(Xk));	% scale factor!
 	if ll == 1
