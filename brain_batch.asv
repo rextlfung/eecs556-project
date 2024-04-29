@@ -1,0 +1,49 @@
+% read 20 T1w brain mri structural images in nifti format.
+% find the prior distribution of this dataset by averaging the
+% lowpass-filtered spectra
+
+data_root='/Users/yonglismac/Documents/WIN24/556Project/brainmri_nifti';
+
+files = dir(fullfile(data_root, '*')); %first two elements '.' and '..' should be excluded
+I_batch=zeros(256,256,numel(files)-2);
+
+for i=1:numel(files)-2
+    i
+    imFile=fullfile(data_root,files(2+i).name);
+    metadata=niftiinfo(imFile);
+    vol=niftiread(metadata);
+    [nx,ny,nz]=size(vol);
+    I_batch(1:nx,1:ny,i)=vol(:,:,round(nz/2));
+end
+
+idx=[1,2,3,4,5,7,8,11,12,13,14,15,16,17,19];
+I_batch_15=I_batch(:,:,idx);
+
+batchsize=size(I_batch_15,3);
+% image preprocessing
+for i=1:size(I_batch_15,3)
+    I_batch_15(:,:,i)=I_batch_15(:,:,i)-min(I_batch_15(:,:,i),[],'all');% shift to [0,X]
+    I_batch_15(:,:,i)=I_batch_15(:,:,i)./max(I_batch_15(:,:,i),[],'all'); %normalize to [0,1]
+end
+
+%% Generate k samples
+% generate a radial trajectory with 128 lines.
+N=size(I_batch_15,1);
+kloc_onesided=getpolar(128,N);
+kloc_centered=kloc_onesided-N/2-N/2*1i-1-1i;
+
+% Compute the exact Fourier samples on the radial trajectory. 
+M=length(kloc_centered);
+[A1,B1]=creatA1(kloc_centered,N);
+[A2,B2]=creatA(kloc_centered,N);
+
+% Simulate the k-space measurements on the radial trajectory using DTFT. 
+X_batch=zeros(M,batchsize);
+for i=1:batchsize
+    i
+    X_batch(:,i)=NFT_n(I_batch_15(:,:,i),N,A1,B1,M);
+end
+%% NUFFT parameters
+[K Ofactor J ]=deal(N+2,101,4);
+diff=K-N;
+Order=2;
